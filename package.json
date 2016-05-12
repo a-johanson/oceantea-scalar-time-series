@@ -1,0 +1,17 @@
+{
+  "name": "molab-scalar-time-series",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "arj",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "csv": "^0.4.6",
+    "express": "^4.13.4",
+    "multer": "^1.1.0",
+    "validator": "^4.8.0"
+  }
+}

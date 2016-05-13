@@ -1,3 +1,11 @@
+try {
+	process.chdir(__dirname);
+}
+catch(err) {
+	console.log("Could not change working directory to app root");
+	process.exit(1);
+}
+
 const express = require("express");
 const multer  = require("multer");
 const auth = require("./auth");

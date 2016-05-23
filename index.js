@@ -21,6 +21,8 @@ app.post("/upload", auth, upload.single("dataFile"), require("./upload"));
 
 app.use("/timeseries", require("./timeseries"));
 
+app.get("/convert", require("./convert")); // FIXME: auth!!!
+
 app.use("/datatypes", require("./datatypes"));
 
 app.get("/stations", function(req, res) {

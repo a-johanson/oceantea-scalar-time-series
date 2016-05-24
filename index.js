@@ -21,7 +21,7 @@ app.post("/upload", auth, upload.single("dataFile"), require("./upload"));
 
 app.use("/timeseries", require("./timeseries"));
 
-app.get("/convert", require("./convert")); // FIXME: auth!!!
+app.get("/convert", auth, require("./convert").convertHandler);
 
 app.use("/datatypes", require("./datatypes"));
 

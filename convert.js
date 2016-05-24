@@ -1,61 +1,107 @@
 const db = require("./db");
 const conversionClient = require("./conversion_client");
 
-function tryToConvertCTP(station, depth, timeseries, handeledTS) {
-	var i_conductivity = -1;
-	var i_temperature = -1;
-	var i_pressure = -1;
+// TODO: Beim Upload callen!
+
+function tryToConvert(inputSeries, station, depth, timeseries, handeledTS, callback) {
+	var inputIndices = inputSeries.map( (d) => -1 ); // inputIndices will hold the indices of inputSeries in timeseries
 	
-	if(!timeseries.some(function(ts, index) {
+	if(timeseries.some(function(ts, index) {
 		if(ts.station === station && ts.depth === depth && !handeledTS[index]) {
-			if(ts.dataType === "conductivity") {
-				i_conductivity = index;
-				handeledTS[index] = true;
-			}
-			else if(ts.dataType === "temperature") {
-				i_temperature = index;
-				handeledTS[index] = true;
-			}
-			else if(ts.dataType === "pressure") {
-				i_pressure = index;
-				handeledTS[index] = true;
-			}
-			return (i_conductivity >= 0 && i_temperature >= 0 && i_pressure >= 0);
+			inputSeries.some(function(d, di) {
+				if(ts.dataType === d) {
+					inputIndices[di] = index;
+					handeledTS[index] = true;
+					return true;
+				}
+				return false;
+			});
 		}
-	})) {
-		console.log(i_temperature);
-		db.getTSCached(station, "conductivity", depth, true, function(condData) {
-			console.log(condData[0]);
-			db.getTSCached(station, "temperature", depth, true, function(tempData) {
-				db.getTSCached(station, "pressure", depth, true, function(pressData) {
-					var ctpSeries = condData.map(function(elem, index) {
-						//return [elem[0], elem[1], tempData[index][1], pressData[index][1]];
-						return [1, 34, 6, 212];
-					});
-					console.log(i_temperature);
-					conversionClient.getConvertedSeries(15000, 
-						timeseries[i_temperature].lat, timeseries[i_temperature].lon, ctpSeries, 
-						function(converted) {
-							//res.json(converted);
-							//console.log(converted);
+		return inputIndices.every( (i) => i > -1 );
+	})) { // If all necessary input series were found:
+		var selectedTSData = inputIndices.map( (d) => null );
+		
+		inputSeries.forEach(function(s, si) {
+			db.getTSCached(station, s, depth, true, function(data) {
+				selectedTSData[si] = data;
+				
+				if(selectedTSData.every( (d) => d !== null )) { // If all series have been loaded...
+					if(!selectedTSData.every( (d) => d.length >= selectedTSData[0].length )) {
+						if(callback) {
+							callback(false);
+						}
+						return;
+					}
+					
+					var combinedSeries = []; // ... combine them into one.
+					selectedTSData[0].forEach(function(d, di) {
+						combinedSeries[di] = [ selectedTSData[0][di][0] ];
+						selectedTSData.forEach(function(ts) {
+							combinedSeries[di].push(ts[di][1]);
 						});
-				});
-			});		
+					});
+					
+					conversionClient.getConvertedSeries(15000, 
+						timeseries[inputIndices[0]].lat, timeseries[inputIndices[0]].lon, combinedSeries, 
+						function(converted) {
+							if(!converted || !converted.hasOwnProperty("timestamps")) {
+								if(callback) {
+									callback(false);
+								}
+								return;
+							}
+							// Extract individual series...
+							var outNames = Object.keys(converted);
+							outNames.splice(outNames.indexOf("timestamps"), 1);
+							outNames.forEach(function(name) {
+								var ts = converted[name];
+								ts = ts.map( (d, di) => [ converted.timestamps[di], d ] );
+								db.addScalarTStoTSDBSync(["timestamp", name], timeseries[inputIndices[0]], ts, 1);
+								db.writeTSDBSync();
+							});
+							if(callback) {
+								callback(true);
+							}
+						});
+				}
+			});
 		});
+	}
+	else if(callback) {
+		callback(false);
 	}
 }
 
-module.exports = function (req, res) {
-	const timeseries = db.getTSDB().timeseries;
-	handeledTS = timeseries.map(function(ts) {
-		return false;
-	});
-	timeseries.forEach(function(ts, index) {
-		if((ts.dataType == "conductivity" || ts.dataType == "temperature" || ts.dataType == "pressure")
-		&& handeledTS[index] == false) {
-			tryToConvertCTP(ts.station, ts.depth, timeseries, handeledTS);
+module.exports.tryToConvert = tryToConvert;
+module.exports.convertHandler = function (req, res) {
+	conversionClient.getIOSeries(2500, function(ioSeries) {
+		if(!ioSeries || !ioSeries.hasOwnProperty("input") || !Array.isArray(ioSeries.input) || ioSeries.input.length <= 1) {
+			res.status(500).send("Conversion service error");
+			return;
+		}
+		
+		const timeseries = db.getTSDB().timeseries;
+		handeledTS = timeseries.map( (d) => false );
+		
+		var toConvert = 0;
+		var doneConvert = 0;
+		var allConvertsIssued = false;
+		timeseries.forEach(function(ts, index) {
+			if(ioSeries.input.indexOf(ts.dataType) > -1 && handeledTS[index] == false) {
+				toConvert += 1;
+				tryToConvert(ioSeries.input, ts.station, ts.depth, timeseries, handeledTS, function(success) {
+					doneConvert += 1;
+					if(allConvertsIssued && toConvert == doneConvert) {
+						res.json({success: true});
+					}
+				});
+			}
+		});
+		allConvertsIssued = true;
+		if(toConvert == doneConvert) {
+			toConvert += 1;
+			res.json({success: true});
 		}
 	});
-	res.json({success: true});
 };
 

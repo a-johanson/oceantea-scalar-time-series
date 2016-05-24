@@ -326,8 +326,8 @@ function getTSDB() {
 }
 
 function addScalarTStoTSDBSync(header, metadata, data, col) {
-	var originalDataPath = getTSFilePath(metadata.tsType, metadata.station, header[col], metadata.depth, true);
-	var editedDataPath = getTSFilePath(metadata.tsType, metadata.station, header[col], metadata.depth, false);
+	var originalDataPath = getTSFilePath(metadata.station, header[col], metadata.depth, true);
+	var editedDataPath = getTSFilePath(metadata.station, header[col], metadata.depth, false);
 	if(fileExistsSync(originalDataPath)) {
 		// TODO: Was tun, wenn die Datei bereits existiert?
 		return false;

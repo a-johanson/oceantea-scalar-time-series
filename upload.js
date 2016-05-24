@@ -1,6 +1,8 @@
 const parse = require("csv-parse");
 const validator = require("validator");
 const db = require("./db");
+const conversionClient = require("./conversion_client");
+const convert = require("./convert");
 
 function sendFailureResponse(res, msg) {
 	res.status(400).json({
@@ -9,12 +11,22 @@ function sendFailureResponse(res, msg) {
 	});
 }
 
+function sendSuccessResponse(res, allTSWritten) {
+	res.json({
+		success : true,
+		message : (allTSWritten ? "All time series added successfully." : "At least one time series already existed; the others were added successfully.")
+	});
+}
+
 
 module.exports = function (req, res) {
-	//console.log(req.body);
-	//console.log(req.file);
 	if(!req.file) {
 		sendFailureResponse(res, "Upload failed!");
+		return;
+	}
+	
+	if(req.body.autoConvert !== "true" && req.body.autoConvert !== "false") {
+		sendFailureResponse(res, "Invalid auto convert value");
 		return;
 	}
 
@@ -110,10 +122,21 @@ module.exports = function (req, res) {
 				}
 			}
 			db.writeTSDBSync();
-
-			res.json({
-				success : true,
-				message : (allTSWritten ? "All time series added successfully." : "At least one time series already existed; the others were added successfully.")
-			});
+			
+			if(req.body.autoConvert === "true") {
+				conversionClient.getIOSeries(2500, function(ioSeries) {
+					if(!ioSeries || !ioSeries.hasOwnProperty("input") || !Array.isArray(ioSeries.input) || ioSeries.input.length <= 1) {
+						sendSuccessResponse(res, allTSWritten);
+						return;
+					}
+					const timeseries = db.getTSDB().timeseries;
+					convert.tryToConvert(ioSeries.input, metadata.station, metadata.depth, timeseries, timeseries.map( (d) => false ), function(conversionSuccess) {
+						sendSuccessResponse(res, allTSWritten);
+					});
+				});
+			}
+			else {
+				sendSuccessResponse(res, allTSWritten);
+			}
 		});
 };

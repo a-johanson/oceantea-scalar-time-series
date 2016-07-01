@@ -46,6 +46,7 @@ var tsDB = new JSONDB(tsDBFile, { timeseries: [] });
 //  lon: float,
 //  depth: int,
 //  t_reference: string
+//  [[adcpDirection: "up"/"down"]]
 //  [[adcpFirstBinHeight: float]]
 //  [[adcpBinHeight: float]]
 // } ] }

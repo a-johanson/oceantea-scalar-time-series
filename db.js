@@ -48,6 +48,9 @@ JSONDB.prototype.writeSync = function() {
 
 const tsDBFile = "./data/ts.json";
 const tsDBDataDir = "./data/ts/";
+try {
+	fs.mkdirSync(tsDBDataDir);
+} catch (err) {}
 var tsDB = new JSONDB(tsDBFile, { timeseries: [] });
 // TSDB has structure { timeseries: [ {
 //  region: string,

@@ -19,7 +19,7 @@ const db = require("./db");
 
 const router = express.Router();
 
-router.get("/", function(req, res) {
+router.get("/:dummy(scalar)?", function(req, res) {
 	if(req.query.hasOwnProperty("includeAggregatedMetadata")) {
 		res.json({
 			datatypes: db.getTypesDB(),

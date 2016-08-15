@@ -26,8 +26,11 @@ const auth = require("./auth");
 const db = require("./db");
 
 
-const localAddr = "127.0.0.1";
+const localAddr = "localhost";
 const appPort = 3335;
+
+const acceptAllHosts = process.argv.includes("--acceptAllHosts");
+
 
 const app = express();
 
@@ -53,6 +56,6 @@ app.get("/devices", function(req, res) {
 });
 
 
-app.listen(appPort, localAddr, function () {
+app.listen(appPort, acceptAllHosts ? null : localAddr, function () {
 	console.log("Scalar time series app listening on port " + appPort);
 });

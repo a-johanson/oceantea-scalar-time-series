@@ -14,7 +14,10 @@
 
 const http = require("http");
 
-const conversionServiceAddr = "127.0.0.1";
+const useDockerHostnames = process.argv.includes("--useDockerHostnames");
+
+const localAddr = "localhost";
+const conversionServiceAddr = useDockerHostnames ? "oceantea-time-series-conversion-inst" : localAddr;
 const conversionServicePort = 3337;
 
 function getIOSeries(timeout, callback) {

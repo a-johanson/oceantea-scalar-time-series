@@ -102,7 +102,7 @@ resetRegionsDB();
 // }
 
 
-const maxCacheSize = 250 * 1024 * 1024; // in bytes
+const maxCacheSize = 100 * 1024 * 1024; // in bytes
 var tsDataCache = {};
 // An entry consists of
 // cacheKey: {

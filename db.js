@@ -102,11 +102,12 @@ resetRegionsDB();
 // }
 
 
+const maxCacheSize = 250 * 1024 * 1024; // in bytes
 var tsDataCache = {};
 // An entry consists of
 // cacheKey: {
 //  loading : true/false,
-//  timeAdded: int,
+//  timeAdded: int (timestamp in milliseconds),
 //  callbacks: [],
 //  data: null/[[int,float]]/Buffer,
 // }
@@ -120,9 +121,33 @@ function getTSFilePath(station, dataType, depth, original) {
 }
 
 
- function getCacheTimeStamp() {
-	 return Math.floor((new Date().getTime())/1000);
- }
+function getCacheTimeStamp() {
+	return (new Date().getTime());
+}
+
+function enforceMaxCacheSize() {
+	var cacheSize = 0;
+	var smallestTimestamp = getCacheTimeStamp() + 1000; // A second in the future
+	var smallestTimestampKey = null;
+	const sizeOffset = 4 * 8; // Offset to make "empty" cache entries count for maxCacheSize (assume that each of the 4 field occupies 8 bytes)
+	const sizeOfArrayEntry = 2 * 8;
+	for(key in tsDataCache) {
+		cacheSize += sizeOffset + (tsDataCache[key].data ? tsDataCache[key].data.length * sizeOfArrayEntry : 0);
+		if(tsDataCache[key].timeAdded < smallestTimestamp) {
+			smallestTimestamp = tsDataCache[key].timeAdded;
+			smallestTimestampKey = key;
+		}
+	}
+
+	if(cacheSize > maxCacheSize && smallestTimestampKey) {
+		const memoryToBeFreed = sizeOffset + (tsDataCache[smallestTimestampKey].data ? tsDataCache[smallestTimestampKey].data.length * sizeOfArrayEntry : 0);
+		const isAnotherRunNeeded = (cacheSize - memoryToBeFreed > maxCacheSize);
+		delete tsDataCache[smallestTimestampKey];
+		if(isAnotherRunNeeded) {
+			enforceMaxCacheSize();
+		}
+	}
+}
 
 function addArrayDataToCache(station, dataType, depth, original, dataBuffer) {
 	var key = getTSDataCacheKey(station, dataType, depth, original);
@@ -132,6 +157,8 @@ function addArrayDataToCache(station, dataType, depth, original, dataBuffer) {
 		callbacks: [],
 		data: dataBuffer
 	};
+
+	enforceMaxCacheSize();
 }
 
 function removeTSFromCache(station, dataType, depth, original) {
@@ -192,6 +219,8 @@ function getTSCached(station, dataType, depth, original, callback) {
 				cb(dataObj.data);
 			});
 			tsDataCache[key].callbacks = [];
+
+			enforceMaxCacheSize();
 		});
 	}
 }
